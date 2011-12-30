@@ -45,7 +45,7 @@
 	listener :: pid(),
 	socket :: inet:socket(),
 	transport :: module(),
-	dispatch :: cowboy_dispatcher:dispatch_rules(),
+	dispatch :: cowboy_dispatcher:dispatch_rules() | fun(() -> cowboy_dispatcher:dispatch_rules()),
 	handler :: {module(), any()},
 	urldecode :: {fun((binary(), T) -> binary()), T},
 	req_empty_lines = 0 :: integer(),
@@ -206,6 +206,8 @@ header(_Any, _Req, State) ->
 
 -spec dispatch(fun((#http_req{}, #state{}) -> ok),
 	#http_req{}, #state{}) -> ok | none().
+dispatch(Next, Req=#http_req{}, State=#state{dispatch=Dispatch}) when is_function(Dispatch) ->
+	dispatch(Next, Req, State#state{dispatch=Dispatch()});
 dispatch(Next, Req=#http_req{host=Host, path=Path},
 		State=#state{dispatch=Dispatch}) ->
 	%% @todo We should allow a configurable chain of handlers here to
