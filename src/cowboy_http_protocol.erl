@@ -206,16 +206,22 @@ header(_Any, _Req, State) ->
 
 -spec dispatch(fun((#http_req{}, #state{}) -> ok),
 	#http_req{}, #state{}) -> ok | none().
-dispatch(Next, Req=#http_req{}, State=#state{dispatch=Dispatch}) when is_function(Dispatch) ->
-	dispatch(Next, Req, State#state{dispatch=Dispatch()});
 dispatch(Next, Req=#http_req{host=Host, path=Path},
 		State=#state{dispatch=Dispatch}) ->
 	%% @todo We should allow a configurable chain of handlers here to
 	%%       allow things like url rewriting, site-wide authentication,
 	%%       optional dispatching, and more. It would default to what
 	%%       we are doing so far.
-	case cowboy_dispatcher:match(Host, Path, Dispatch) of
-		{ok, Handler, Opts, Binds, HostInfo, PathInfo} ->
+
+	DispatchResult = case Dispatch of
+		F when is_function(Dispatch) ->
+			F(Host, Path);
+		_ ->
+			cowboy_dispatcher:match(Host, Path, Dispatch)
+	end,
+	
+	case DispatchResult of
+		{ok, Handler, Opts, Binds, HostInfo, PathInfo} = _Result ->
 			Next(Req#http_req{host_info=HostInfo, path_info=PathInfo,
 				bindings=Binds}, State#state{handler={Handler, Opts}});
 		{error, notfound, host} ->
